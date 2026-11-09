@@ -31,6 +31,15 @@ jobs:
         env:
           DSH_PACKAGE_CHECK_ALREADY_RAN: '1'
         run: yarn workspace dsh-desktop-next dist:win
+      - name: Check the packaged app never names the upstream update domain
+        shell: pwsh
+        run: |
+          $roots = @('dsh-desktop-next/dist/win-unpacked/resources/app.asar', 'dsh-desktop-next/dist/win-unpacked/resources/app.asar.unpacked')
+          $files = $roots | Where-Object { Test-Path $_ } | ForEach-Object { Get-ChildItem $_ -Recurse -File -ErrorAction SilentlyContinue }
+          if (-not $files) { throw "Packaged app files not found under dsh-desktop-next/dist/win-unpacked" }
+          $hits = $files | Select-String -SimpleMatch 'dshdesktop.cn' -List
+          if ($hits) { $hits | ForEach-Object { Write-Host $_.Path }; throw "dshdesktop.cn found in the packaged app" }
+          Write-Host "No reference to dshdesktop.cn in $($files.Count) packaged files."
       - name: Record the installer hash
         shell: pwsh
         run: |

@@ -9,7 +9,7 @@ import { withUpdateArch, type UpdateArch } from './update-arch.ts'
 import type { NextUpdateState } from './update-state.ts'
 
 /**
- * Local fork: the update service at www.dshdesktop.cn is never contacted.
+ * Local fork: the upstream update service is never contacted (its URLs are replaced with .invalid).
  * No background polling, no version check, no installation ID, no download.
  * Update by rebuilding from source instead.
  */
