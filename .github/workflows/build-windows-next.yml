@@ -31,15 +31,18 @@ jobs:
         env:
           DSH_PACKAGE_CHECK_ALREADY_RAN: '1'
         run: yarn workspace dsh-desktop-next dist:win
-      - name: Check the packaged app never names the upstream update domain
+      - name: Check the packaged app code never names the upstream update domain
         shell: pwsh
         run: |
-          $roots = @('dsh-desktop-next/dist/win-unpacked/resources/app.asar', 'dsh-desktop-next/dist/win-unpacked/resources/app.asar.unpacked')
-          $files = $roots | Where-Object { Test-Path $_ } | ForEach-Object { Get-ChildItem $_ -Recurse -File -ErrorAction SilentlyContinue }
-          if (-not $files) { throw "Packaged app files not found under dsh-desktop-next/dist/win-unpacked" }
+          $res = 'dsh-desktop-next/dist/win-unpacked/resources'
+          if (-not (Test-Path "$res/app.asar")) { throw "app.asar not found under $res" }
+          npx --yes @electron/asar@3 extract "$res/app.asar" "$env:RUNNER_TEMP/app-extracted"
+          $roots = @("$env:RUNNER_TEMP/app-extracted", "$res/app.asar.unpacked") | Where-Object { Test-Path $_ }
+          # Markdown is skipped: dshmarket's README links the site as documentation, which is not a network call.
+          $files = $roots | ForEach-Object { Get-ChildItem $_ -Recurse -File } | Where-Object { $_.Extension -ne '.md' }
           $hits = $files | Select-String -SimpleMatch 'dshdesktop.cn' -List
-          if ($hits) { $hits | ForEach-Object { Write-Host $_.Path }; throw "dshdesktop.cn found in the packaged app" }
-          Write-Host "No reference to dshdesktop.cn in $($files.Count) packaged files."
+          if ($hits) { $hits | ForEach-Object { Write-Host "$($_.Path):$($_.LineNumber)" }; throw "dshdesktop.cn found in packaged app code" }
+          Write-Host "No reference to dshdesktop.cn in $($files.Count) packaged non-Markdown files."
       - name: Record the installer hash
         shell: pwsh
         run: |
