@@ -36,10 +36,8 @@ jobs:
         run: |
           $res = 'dsh-desktop-next/dist/win-unpacked/resources'
           if (-not (Test-Path "$res/app.asar")) { throw "app.asar not found under $res" }
-          # @electron/asar is already installed as an electron-builder dependency.
-          $env:ASAR_SRC = (Resolve-Path "$res/app.asar").Path
           $env:ASAR_DEST = "$env:RUNNER_TEMP/app-extracted"
-          node -e "require('@electron/asar').extractAll(process.env.ASAR_SRC, process.env.ASAR_DEST)"
+          node .github/scripts/extract-asar.cjs (Resolve-Path "$res/app.asar").Path $env:ASAR_DEST
           if ($LASTEXITCODE -ne 0) { throw "Could not extract app.asar" }
           if (-not (Test-Path $env:ASAR_DEST)) { throw "app.asar extraction produced nothing" }
           $roots = @($env:ASAR_DEST, "$res/app.asar.unpacked") | Where-Object { Test-Path $_ }
