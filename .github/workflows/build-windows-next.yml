@@ -1,0 +1,50 @@
+# Local fork: builds the DSH Desktop Next Windows installer from this repository's
+# source, with the update service disabled (see dsh-desktop-next/src/updates.ts).
+# Run it from the Actions tab. The installer and its SHA-256 are uploaded as an artifact.
+name: Build Windows installer (Next)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-next:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.23.2
+      - run: corepack enable
+      - name: Resolve the upstream toolchain
+        run: yarn upstream:version
+      - run: yarn install --immutable
+      - name: Build and check the Next package
+        run: yarn workspace dsh-desktop-next check:win-package:platform
+      - name: Build the Windows installer
+        env:
+          DSH_PACKAGE_CHECK_ALREADY_RAN: '1'
+        run: yarn workspace dsh-desktop-next dist:win
+      - name: Record the installer hash
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dsh-desktop-next/dist -Filter "*-Setup.exe" | Select-Object -First 1
+          if (-not $exe) { throw "No installer found in dsh-desktop-next/dist" }
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($exe.Name)" | Out-File -Encoding ascii dsh-desktop-next/dist/SHA256SUMS.txt
+          "Commit: $env:GITHUB_SHA" | Out-File -Append -Encoding ascii dsh-desktop-next/dist/SHA256SUMS.txt
+          "### Installer`n`n``$($exe.Name)```n`nSHA-256: ``$hash``" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-desktop-next-windows-x64
+          path: |
+            dsh-desktop-next/dist/*-Setup.exe
+            dsh-desktop-next/dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30

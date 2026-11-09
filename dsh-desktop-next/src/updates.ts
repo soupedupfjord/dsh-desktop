@@ -8,6 +8,13 @@ import { atomicJson, privateDirectory, readPrivateFile } from './private-files.t
 import { withUpdateArch, type UpdateArch } from './update-arch.ts'
 import type { NextUpdateState } from './update-state.ts'
 
+/**
+ * Local fork: the update service at www.dshdesktop.cn is never contacted.
+ * No background polling, no version check, no installation ID, no download.
+ * Update by rebuilding from source instead.
+ */
+export const UPDATES_DISABLED = true
+
 export interface NextUpdateOptions {
   version: string
   platform: string
@@ -69,6 +76,7 @@ export class NextUpdates {
     this.options.changed()
   }
   start(): void {
+    if (UPDATES_DISABLED) return
     // Linux checks too, although its packages are downloaded from the release page rather than installed here.
     if (!this.options.packaged || !['darwin', 'win32', 'linux'].includes(this.options.platform) || this.timer || this.disposed) return
     void this.initializeCache().catch(this.options.log)
@@ -95,6 +103,7 @@ export class NextUpdates {
     return this.options.arch === undefined ? init : withUpdateArch(init, this.options.arch)
   }
   private async query(signal: AbortSignal): Promise<UpdateCheckResult | null> {
+    if (UPDATES_DISABLED) return null
     let installationId
     // The privacy policy limits the installation UUID to the macOS and Windows update flow, so Linux checks without it.
     if (this.state.installable) {
