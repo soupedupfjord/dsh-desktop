@@ -36,8 +36,13 @@ jobs:
         run: |
           $res = 'dsh-desktop-next/dist/win-unpacked/resources'
           if (-not (Test-Path "$res/app.asar")) { throw "app.asar not found under $res" }
-          npx --yes @electron/asar@3 extract "$res/app.asar" "$env:RUNNER_TEMP/app-extracted"
-          $roots = @("$env:RUNNER_TEMP/app-extracted", "$res/app.asar.unpacked") | Where-Object { Test-Path $_ }
+          # @electron/asar is already installed as an electron-builder dependency.
+          $env:ASAR_SRC = (Resolve-Path "$res/app.asar").Path
+          $env:ASAR_DEST = "$env:RUNNER_TEMP/app-extracted"
+          node -e "require('@electron/asar').extractAll(process.env.ASAR_SRC, process.env.ASAR_DEST)"
+          if ($LASTEXITCODE -ne 0) { throw "Could not extract app.asar" }
+          if (-not (Test-Path $env:ASAR_DEST)) { throw "app.asar extraction produced nothing" }
+          $roots = @($env:ASAR_DEST, "$res/app.asar.unpacked") | Where-Object { Test-Path $_ }
           # Markdown is skipped: dshmarket's README links the site as documentation, which is not a network call.
           $files = $roots | ForEach-Object { Get-ChildItem $_ -Recurse -File } | Where-Object { $_.Extension -ne '.md' }
           $hits = $files | Select-String -SimpleMatch 'dshdesktop.cn' -List
